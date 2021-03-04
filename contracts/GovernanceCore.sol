@@ -19,16 +19,31 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
 
     mapping (bytes32 => Proposal) _proposals;
 
+    modifier onlyActiveTimer(bytes32 id) virtual override {
+        require(_isTimerActive(id), "GovernanceCore: invalid proposal");
+        _;
+    }
+
+    modifier onlyDuringTimer(bytes32 id) virtual override {
+        require(_isTimerDuring(id), "GovernanceCore: vote not currently active");
+        _;
+    }
+
+    modifier onlyAfterTimer(bytes32 id) virtual override {
+        require(_isTimerAfter(id), "GovernanceCore: proposal not ready to execute");
+        _;
+    }
+
     constructor(string memory name, string memory version) EIP712(name, version) {}
 
     /*************************************************************************
      *                            View functions                             *
      *************************************************************************/
     function viewProposalStatus(bytes32 id) public view returns (uint8 status) {
-        if (_beforeTimer(id)) return uint8(0x0);
-        if (_duringTimer(id)) return uint8(0x1);
-        if (_afterTimer(id))  return uint8(0x2);
-        if (_lockedTimer(id)) return uint8(0x3);
+        if (_isTimerBefore(id)) return uint8(0x0);
+        if (_isTimerDuring(id)) return uint8(0x1);
+        if (_isTimerAfter(id))  return uint8(0x2);
+        if (_isTimerLocked(id)) return uint8(0x3);
         revert();
     }
 
@@ -50,10 +65,7 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
 
         bytes32 id = hashProposal(target, value, data, salt);
 
-        _startTimer(id, block.timestamp + votingDuration()); // prevent double proposal
-
-        _proposals[id].snapshot = _snapshot();
-        // TODO: emit event(s)
+        _propose(id, target, value, data, salt);
     }
 
     function execute(address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) public payable virtual override {
@@ -63,17 +75,7 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
 
         bytes32 id = hashProposal(target, value, data, salt);
 
-        _resetTimer(id); // check timer expired + reset
-        _lockTimer(id); // avoid double execution
-
-        Proposal storage proposal = _proposals[id];
-        require(proposal.supply >= quorum(), "GovernanceCore: quorum not reached");
-        require(proposal.score >= proposal.supply * requiredScore(), "GovernanceCore: required score not reached");
-
-        for (uint256 i = 0; i < target.length; ++i) {
-            _call(target[i], value[i], data[i]);
-        }
-        // TODO: emit event(s)
+        _execute(id, target, value, data, salt);
     }
 
     function castVote(bytes32 id, uint256 score) public virtual override {
@@ -89,19 +91,31 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
     }
 
     /*************************************************************************
-     *                               Internal                                *
+     *                               Private                                 *
      *************************************************************************/
-    function _call(address target, uint256 value, bytes memory data) internal {
-        if (data.length == 0) {
-            Address.sendValue(payable(target), value);
-        } else {
-            Address.functionCallWithValue(target, data, value);
-        }
-        // TODO: emit event
+    function _propose(bytes32 id, address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) private {
+        _startTimer(id, block.timestamp + votingDuration()); // prevent double proposal
+
+        _proposals[id].snapshot = _snapshot();
+        // TODO: emit event(s)
     }
 
-    function _castVote(bytes32 id, address account, uint256 score) internal {
-        require(_duringTimer(id), "GovernanceCore: vote not currently active");
+    function _execute(bytes32 id, address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) private onlyAfterTimer(id)
+    {
+        _resetTimer(id); // check timer expired + reset
+        _lockTimer(id); // avoid double execution
+
+        Proposal storage proposal = _proposals[id];
+        require(proposal.supply >= quorum(), "GovernanceCore: quorum not reached");
+        require(proposal.score >= proposal.supply * requiredScore(), "GovernanceCore: required score not reached");
+
+        for (uint256 i = 0; i < target.length; ++i) {
+            _call(target[i], value[i], data[i]);
+        }
+        // TODO: emit event(s)
+    }
+
+    function _castVote(bytes32 id, address account, uint256 score) private onlyDuringTimer(id) {
         require(score <= maxScore(), "GovernanceCore: invalid score");
 
         Proposal storage proposal = _proposals[id];
@@ -111,6 +125,15 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         uint256 balance = _balanceOfAt(account, proposal.snapshot);
         proposal.supply += balance;
         proposal.score += balance * score;
+        // TODO: emit event
+    }
+
+    function _call(address target, uint256 value, bytes memory data) private {
+        if (data.length == 0) {
+            Address.sendValue(payable(target), value);
+        } else {
+            Address.functionCallWithValue(target, data, value);
+        }
         // TODO: emit event
     }
 }

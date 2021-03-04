@@ -61,7 +61,7 @@ function governanceWorkflow() {
             });
 
             it('check', async () => {
-              this.settings.check();
+              await this.settings.check();
             });
           });
         });
@@ -102,7 +102,7 @@ contract('Governance', function (accounts) {
           wait:    { enable: true },
           execute: { enable: true },
         },
-        check: () => {
+        check: async () => {
           expectEvent(this.receipts.propose, 'TimerStarted', { timer: this.id, deadline: this.deadline });
           // expectEvent(this.receipts.castVote, 'TimerStarted', { timer: this.id, deadline: this.deadline });
           expectEvent(this.receipts.execute, 'TimerReset', { timer: this.id });
@@ -111,6 +111,8 @@ contract('Governance', function (accounts) {
             this.receiver,
             'MockFunctionCalled',
           );
+
+          await expectRevert(this.governance.castVote(this.id, new BN('0'), { from: accounts[2] }), "GovernanceCore: vote not currently active");
         }
       }
     });
@@ -133,7 +135,7 @@ contract('Governance', function (accounts) {
         steps: {
           propose: { enable: false },
           wait:    { enable: false },
-          execute: { enable: true, reason: 'Timers: onlyAfterTimer' },
+          execute: { enable: true, reason: 'GovernanceCore: proposal not ready to execute' },
         },
         check: () => {}
       }
@@ -228,7 +230,7 @@ contract('Governance', function (accounts) {
         steps: {
           propose: { enable: true },
           wait:    { enable: false },
-          execute: { enable: true, reason: 'Timers: onlyAfterTimer' },
+          execute: { enable: true, reason: 'GovernanceCore: proposal not ready to execute' },
         },
         check: () => {}
       }

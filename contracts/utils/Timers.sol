@@ -26,23 +26,28 @@ abstract contract Timers {
     event TimerReset(bytes32 indexed timer);
     event TimerLocked(bytes32 indexed timer);
 
-    modifier onlyActiveTimer(bytes32 id) {
-        require(_beforeTimer(id), "Timers: onlyBeforeTimer");
+    modifier onlyActiveTimer(bytes32 id) virtual {
+        require(_isTimerActive(id), "Timers: onlyActiveTimer");
         _;
     }
 
-    modifier onlyBeforeTimer(bytes32 id) {
-        require(_beforeTimer(id), "Timers: onlyBeforeTimer");
+    modifier onlyLockedTimer(bytes32 id) virtual {
+        require(_isTimerLocked(id), "Timers: onlyLockedTimer");
         _;
     }
 
-    modifier onlyDuringTimer(bytes32 id) {
-        require(_duringTimer(id), "Timers: onlyDuringTimer");
+    modifier onlyBeforeTimer(bytes32 id) virtual {
+        require(_isTimerBefore(id), "Timers: onlyBeforeTimer");
         _;
     }
 
-    modifier onlyAfterTimer(bytes32 id) {
-        require(_afterTimer(id), "Timers: onlyAfterTimer");
+    modifier onlyDuringTimer(bytes32 id) virtual {
+        require(_isTimerDuring(id), "Timers: onlyDuringTimer");
+        _;
+    }
+
+    modifier onlyAfterTimer(bytes32 id) virtual {
+        require(_isTimerAfter(id), "Timers: onlyAfterTimer");
         _;
     }
 
@@ -50,26 +55,26 @@ abstract contract Timers {
         return _deadlines[id];
     }
 
-    function _activeTimer(bytes32 id) internal view returns (bool) {
+    function _isTimerActive(bytes32 id) internal view returns (bool) {
         return _getDeadline(id) > _DONE_TIMESTAMP;
     }
 
-    function _lockedTimer(bytes32 id) internal view returns (bool) {
+    function _isTimerLocked(bytes32 id) internal view returns (bool) {
         return _getDeadline(id) == _DONE_TIMESTAMP;
     }
 
-    function _beforeTimer(bytes32 id) internal view returns (bool) {
+    function _isTimerBefore(bytes32 id) internal view returns (bool) {
         return _getDeadline(id) == 0;
     }
 
-    function _duringTimer(bytes32 id) internal view returns (bool) {
+    function _isTimerDuring(bytes32 id) internal view returns (bool) {
         // solhint-disable-next-line not-rely-on-time
-        return _activeTimer(id) && _getDeadline(id) > block.timestamp;
+        return _isTimerActive(id) && _getDeadline(id) > block.timestamp;
     }
 
-    function _afterTimer(bytes32 id) internal view returns (bool) {
+    function _isTimerAfter(bytes32 id) internal view returns (bool) {
         // solhint-disable-next-line not-rely-on-time
-        return _activeTimer(id) && _getDeadline(id) <= block.timestamp;
+        return _isTimerActive(id) && _getDeadline(id) <= block.timestamp;
     }
 
     function _startTimer(bytes32 id, uint256 delay) internal virtual onlyBeforeTimer(id) {
@@ -87,15 +92,8 @@ abstract contract Timers {
         emit TimerLocked(id);
     }
 
-    function _stopTimer(bytes32 id) internal virtual onlyDuringTimer(id) {
-        _afterTimer(id, false);
-
-        delete _deadlines[id];
-        emit TimerStopped(id);
-    }
-
-    function _resetTimer(bytes32 id) internal virtual onlyAfterTimer(id) {
-        _afterTimer(id, true);
+    function _resetTimer(bytes32 id) internal virtual onlyActiveTimer(id) {
+        _afterTimer(id);
 
         delete _deadlines[id];
         emit TimerReset(id);
@@ -114,15 +112,13 @@ abstract contract Timers {
     function _beforeTimer(bytes32 id, uint256 deadline) internal virtual { }
 
     /**
-     * @dev Hook that is called when a timmer stops or is reset.
+     * @dev Hook that is called when a timmer is reset.
      *
      * Parameters:
      *
      * - id: the timmer identifier
-     * - success: indication weither the timer was still running (stop) or if
-     *   it had reached its deadline (reset)
      *
      * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
-    function _afterTimer(bytes32 id, bool success) internal virtual { }
+    function _afterTimer(bytes32 id) internal virtual { }
 }
