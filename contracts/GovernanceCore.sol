@@ -47,8 +47,8 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         revert();
     }
 
-    function viewProposal(bytes32 id) public view returns (uint256 deadline, uint256 supply, uint256 score) {
-        return (_getDeadline(id), _proposals[id].supply, _proposals[id].score);
+    function viewProposal(bytes32 id) public view returns (uint256 startBlock, uint256 deadline, uint256 supply, uint256 score) {
+        return ( _proposals[id].block, _getDeadline(id), _proposals[id].supply, _proposals[id].score);
     }
 
     function hashProposal(address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) public pure virtual returns (bytes32 hash) {
@@ -94,10 +94,11 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
      *                               Private                                 *
      *************************************************************************/
     function _propose(bytes32 id, address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) private {
-        _startTimer(id, block.timestamp + votingDuration()); // prevent double proposal
+        uint256 duration = votingDuration();
+        uint256 offset   = votingOffset();
 
-        // TODO: make that in the futur to let people buy tokens for voting.
-        _proposals[id].block = block.number;
+        _startTimer(id, block.timestamp + offset * 14 + duration); // prevent double proposal
+        _proposals[id].block = block.number + offset;
 
         emit Proposed(id, target, value, data, salt);
     }
@@ -125,7 +126,7 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         require(!proposal.voters[account], "GovernanceCore: vote already casted");
         proposal.voters[account] = true;
 
-        require(proposal.block > block.number, "GovernanceCore: too early to vote");
+        require(proposal.block < block.number, "GovernanceCore: too early to vote");
         uint256 balance = token().getPriorVotes(account, proposal.block);
         proposal.supply += balance;
         proposal.score += balance * score;

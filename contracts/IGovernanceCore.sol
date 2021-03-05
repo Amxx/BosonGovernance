@@ -12,6 +12,7 @@ abstract contract IGovernanceCore {
 
     // settings
     function token() public view virtual returns (IComp);
+    function votingOffset() public view virtual returns (uint256);
     function votingDuration() public view virtual returns (uint256);
     function quorum() public view virtual returns (uint256);
     function maxScore() public view virtual returns (uint256) { return 100; }
@@ -23,5 +24,5 @@ abstract contract IGovernanceCore {
 
     // votes
     function castVote(bytes32 id, uint256 score) external virtual;
-    function castVoteBySig(bytes32 id, uint256 score, bytes calldata signature) external virtual;
+    function castVoteBySig(bytes32 id, uint256 score, uint8 v, bytes32 r, bytes32 s) external virtual;
 }

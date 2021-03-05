@@ -17,6 +17,10 @@ contract Governance is GovernanceCore {
         return _token;
     }
 
+    function votingOffset() public pure override returns (uint256) {
+        return 0;
+    }
+
     function votingDuration() public pure override returns (uint256) {
         return 3600;
     }
