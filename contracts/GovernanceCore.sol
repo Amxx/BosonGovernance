@@ -51,8 +51,10 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         return ( _proposals[id].block, _getDeadline(id), _proposals[id].supply, _proposals[id].score);
     }
 
-    function hashProposal(address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) public pure virtual returns (bytes32 hash) {
-        return keccak256(abi.encode(target, value, data, salt));
+    function hashProposal(address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) public view virtual returns (bytes32 hash) {
+        // This is cheaper and works just as well
+        return keccak256(_msgData()[4:]);
+        // return keccak256(abi.encode(target, value, data, salt));
     }
 
     /*************************************************************************
