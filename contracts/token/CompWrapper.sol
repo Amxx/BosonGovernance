@@ -1,0 +1,130 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/Arrays.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import "./IComp.sol";
+
+contract CompWrapper is IComp, ERC20Permit {
+    ERC20 immutable _underlyingToken;
+
+    bytes32 public constant DELEGATION_TYPEHASH = keccak256("Delegation(address delegator,address delegatee,uint256 expiry)");
+
+    mapping (address => address)                      private _delegates;
+    mapping (address => uint256[])                    private _checkpointBlocks;
+    mapping (address => mapping (uint256 => uint256)) private _checkpointWeights;
+
+    constructor(ERC20 underlyingToken)
+    ERC20(
+        string(abi.encodePacked("Governance ", underlyingToken.name())),
+        string(abi.encodePacked("G-", underlyingToken.symbol()))
+    )
+    ERC20Permit (
+        string(abi.encodePacked("Governance ", underlyingToken.name()))
+    )
+    {
+        _underlyingToken = underlyingToken;
+    }
+
+    function depositFor(address account, uint256 amount) public virtual returns (bool) {
+        require(_underlyingToken.transferFrom(_msgSender(), address(this), amount));
+        _mint(account, amount);
+        return true;
+    }
+
+    function withdrawTo(address account, uint256 amount) public virtual returns (bool) {
+        _burn(_msgSender(), amount);
+        require(_underlyingToken.transfer(account, amount));
+        return true;
+    }
+
+    function delegate(address delegatee) public virtual override {
+        return _delegate(_msgSender(), delegatee);
+    }
+
+    function delegateFromBySig(address delegator, address delegatee, uint expiry, uint8 v, bytes32 r, bytes32 s) public virtual override {
+        require(block.timestamp <= expiry, "CompERC20Wrapper: signature expired");
+
+        require(
+            delegator == ECDSA.recover(
+                _hashTypedDataV4(keccak256(abi.encode(
+                    DELEGATION_TYPEHASH,
+                    delegatee,
+                    nonces(delegator),
+                    expiry
+                ))),
+                v, r, s
+            ),
+            "CompERC20Wrapper: invalid signature"
+        );
+
+        revert("TODO: delegateFromBySig disabled until _incrementNonces is available");
+        // _incrementNonces(delegator);
+
+        return _delegate(delegator, delegatee);
+    }
+
+    function _delegate(address delegator, address delegatee) internal {
+        address currentDelegate = _delegates[delegator];
+        uint256 delegatorBalance = balanceOf(delegator);
+        _delegates[delegator] = delegatee;
+
+        emit DelegateChanged(delegator, currentDelegate, delegatee);
+
+        _moveDelegates(currentDelegate, delegatee, delegatorBalance);
+    }
+
+    function getPriorVotes(address account, uint blockNumber) public view override returns (uint256) {
+        require(blockNumber < block.number, "CompERC20Wrapper: not yet determined");
+
+        uint256 pos = Arrays.findUpperBound(_checkpointBlocks[account], blockNumber);
+        return pos == 0 ? 0 : _checkpointWeights[account][pos - 1];
+    }
+
+    function getCurrentVotes(address account) external view override returns (uint256) {
+        uint256 pos = _checkpointBlocks[account].length;
+        return pos == 0 ? 0 : _checkpointWeights[account][pos - 1];
+    }
+
+    function _moveDelegates(address srcRep, address dstRep, uint256 amount) internal {
+        if (srcRep != dstRep && amount > 0) {
+            if (srcRep != address(0)) {
+                uint256 srcRepNum = _checkpointBlocks[srcRep].length;
+                uint256 srcRepOld = srcRepNum == 0 ? 0 : _checkpointWeights[srcRep][srcRepNum - 1];
+                uint256 srcRepNew = srcRepOld - amount;
+                _writeCheckpoint(srcRep, srcRepNum, srcRepOld, srcRepNew);
+            }
+
+            if (dstRep != address(0)) {
+                uint256 dstRepNum = _checkpointBlocks[dstRep].length;
+                uint256 dstRepOld = dstRepNum == 0 ? 0 : _checkpointWeights[dstRep][dstRepNum - 1];
+                uint256 dstRepNew = dstRepOld + amount;
+                _writeCheckpoint(dstRep, dstRepNum, dstRepOld, dstRepNew);
+            }
+        }
+    }
+
+    function _writeCheckpoint(address delegatee, uint256 pos, uint256 oldWeight, uint256 newWeight) internal {
+      if (pos > 0 && _checkpointBlocks[delegatee][pos - 1] == block.number) {
+          _checkpointWeights[delegatee][pos - 1] = newWeight;
+      } else {
+          _checkpointBlocks[delegatee].push(block.number);
+          _checkpointWeights[delegatee][pos] = newWeight;
+      }
+
+      emit DelegateVotesChanged(delegatee, oldWeight, newWeight);
+    }
+
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override {
+        address fromDelegate = _delegates[from];
+        address toDelegate   = _delegates[to];
+        _moveDelegates(
+            fromDelegate == address(0) ? from : fromDelegate,
+            toDelegate   == address(0) ? to   : toDelegate,
+            amount
+        );
+    }
+}

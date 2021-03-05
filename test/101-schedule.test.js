@@ -2,6 +2,7 @@ const { BN, expectEvent, expectRevert, time } = require('@openzeppelin/test-help
 const { expect } = require('chai');
 
 const Token        = artifacts.require('ERC20PresetFixedSupply');
+const CompWrapper  = artifacts.require('CompWrapper');
 const Governance   = artifacts.require('Governance');
 const CallReceiver = artifacts.require('CallReceiver');
 
@@ -18,7 +19,8 @@ contract('Governance - schedule', function (accounts) {
 
   beforeEach(async () => {
     this.token      = await Token.new(tokenName, tokenSymbol, tokenSupply, owner);
-    this.governance = await Governance.new(name, version, this.token.address);
+    this.comp       = await CompWrapper.new(this.token.address);
+    this.governance = await Governance.new(name, version, this.comp.address);
     this.receiver   = await CallReceiver.new();
   });
 
@@ -33,7 +35,6 @@ contract('Governance - schedule', function (accounts) {
       const proposalid = await this.governance.hashProposal(...proposal);
       const { receipt } = await this.governance.propose(...proposal);
       expectEvent(receipt, 'TimerStarted', { timer: proposalid });
-      expectEvent(receipt, 'Snapshot');
     });
 
     it('invalid proposal', async () => {

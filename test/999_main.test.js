@@ -2,6 +2,7 @@ const { BN, expectEvent, expectRevert, time } = require('@openzeppelin/test-help
 const { expect } = require('chai');
 
 const Token        = artifacts.require('ERC20PresetFixedSupply');
+const CompWrapper  = artifacts.require('CompWrapper');
 const Governance   = artifacts.require('Governance');
 const CallReceiver = artifacts.require('CallReceiver');
 
@@ -23,8 +24,8 @@ function governanceWorkflow() {
 
       // TODO REASON
       for (const voter of this.settings.voters) {
-        this.token.approve(this.governance.address, voter.weight);
-        this.governance.depositFor(voter.address, voter.weight);
+        await this.token.approve(this.comp.address, voter.weight);
+        await this.comp.depositFor(voter.address, voter.weight);
       }
     });
 
@@ -79,8 +80,9 @@ contract('Governance', function (accounts) {
   const tokenSupply = web3.utils.toWei('100');
 
   beforeEach(async () => {
-    this.token      = await Token.new(tokenName, tokenSymbol, tokenSupply, accounts[0]);
-    this.governance = await Governance.new(name, version, this.token.address);
+    this.token      = await Token.new(tokenName, tokenSymbol, tokenSupply, owner);
+    this.comp       = await CompWrapper.new(this.token.address);
+    this.governance = await Governance.new(name, version, this.comp.address);
     this.receiver   = await CallReceiver.new();
   });
 

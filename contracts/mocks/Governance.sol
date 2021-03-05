@@ -3,14 +3,19 @@
 pragma solidity ^0.8.0;
 
 import "../GovernanceCore.sol";
-import "../tokenView/TokenSnapshotWrapper.sol";
 
-contract Governance is GovernanceCore, TokenSnapshotWrapper {
+contract Governance is GovernanceCore {
+    IComp immutable internal _token;
 
-    constructor(string memory name, string memory version, ERC20 underlyingToken)
-    GovernanceCore(name, version)
-    TokenSnapshotWrapper(underlyingToken)
-    {}
+    constructor(string memory name_, string memory version_, IComp token_)
+    GovernanceCore(name_, version_)
+    {
+        _token = token_;
+    }
+
+    function token() public view override returns (IComp) {
+        return _token;
+    }
 
     function votingDuration() public pure override returns (uint256) {
         return 3600;
@@ -18,9 +23,5 @@ contract Governance is GovernanceCore, TokenSnapshotWrapper {
 
     function quorum() public pure override returns (uint256) {
         return 1;
-    }
-
-    function _snapshot() internal override(ITokenView, TokenSnapshotWrapper) returns (uint256) {
-        return TokenSnapshotWrapper._snapshot();
     }
 }

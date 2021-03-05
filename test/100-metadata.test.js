@@ -2,6 +2,7 @@ const { BN, expectEvent, expectRevert, time } = require('@openzeppelin/test-help
 const { expect } = require('chai');
 
 const Token        = artifacts.require('ERC20PresetFixedSupply');
+const CompWrapper  = artifacts.require('CompWrapper');
 const Governance   = artifacts.require('Governance');
 const CallReceiver = artifacts.require('CallReceiver');
 
@@ -18,7 +19,8 @@ contract('Governance - metadata', function (accounts) {
 
   beforeEach(async () => {
     this.token      = await Token.new(tokenName, tokenSymbol, tokenSupply, owner);
-    this.governance = await Governance.new(name, version, this.token.address);
+    this.comp       = await CompWrapper.new(this.token.address);
+    this.governance = await Governance.new(name, version, this.comp.address);
     this.receiver   = await CallReceiver.new();
   });
 
@@ -30,9 +32,10 @@ contract('Governance - metadata', function (accounts) {
     });
 
     it('governance', async () => {
-      expect(await this.governance.name()).to.be.equal('Stacked ' + tokenName);
-      expect(await this.governance.symbol()).to.be.equal('S-' + tokenSymbol);
-      expect(await this.governance.totalSupply()).to.be.bignumber.equal('0');
+      expect(await this.comp.name()).to.be.equal('Governance ' + tokenName);
+      expect(await this.comp.symbol()).to.be.equal('G-' + tokenSymbol);
+      expect(await this.comp.totalSupply()).to.be.bignumber.equal('0');
+      expect(await this.governance.token()).to.be.bignumber.equal(this.comp.address);
       expect(await this.governance.votingDuration()).to.be.bignumber.equal('3600');
       expect(await this.governance.quorum()).to.be.bignumber.equal('1');
       expect(await this.governance.maxScore()).to.be.bignumber.equal('100');

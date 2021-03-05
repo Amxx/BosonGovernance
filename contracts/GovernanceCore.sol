@@ -11,7 +11,7 @@ import "./utils/Timers.sol";
 
 abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
     struct Proposal {
-        uint256 snapshot;
+        uint256 block;
         uint256 supply;
         uint256 score;
         mapping (address => bool) voters;
@@ -96,8 +96,9 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
     function _propose(bytes32 id, address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) private {
         _startTimer(id, block.timestamp + votingDuration()); // prevent double proposal
 
-        _proposals[id].snapshot = _snapshot();
-        // TODO: emit event(s)
+        _proposals[id].block = block.number;
+
+        emit Proposed(id, target, value, data, salt);
     }
 
     function _execute(bytes32 id, address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) private onlyAfterTimer(id)
@@ -112,7 +113,8 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         for (uint256 i = 0; i < target.length; ++i) {
             _call(target[i], value[i], data[i]);
         }
-        // TODO: emit event(s)
+
+        emit Executed(id, target, value, data, salt);
     }
 
     function _castVote(bytes32 id, address account, uint256 score) private onlyDuringTimer(id) {
@@ -122,10 +124,11 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         require(!proposal.voters[account], "GovernanceCore: vote already casted");
         proposal.voters[account] = true;
 
-        uint256 balance = _balanceOfAt(account, proposal.snapshot);
+        uint256 balance = token().getPriorVotes(account, proposal.block);
         proposal.supply += balance;
         proposal.score += balance * score;
-        // TODO: emit event
+
+        emit Vote(id, account, balance, score);
     }
 
     function _call(address target, uint256 value, bytes memory data) private {
@@ -134,6 +137,5 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         } else {
             Address.functionCallWithValue(target, data, value);
         }
-        // TODO: emit event
     }
 }
