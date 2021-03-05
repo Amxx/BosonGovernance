@@ -97,10 +97,6 @@ contract('Governance', function (accounts) {
                 });
                 expectEvent(this.receipts.execute, 'Executed', {
                   id:       this.id,
-                  target:   this.proposal[0],
-                  // value:    this.proposal[1],
-                  data:     this.proposal[2],
-                  salt:     this.proposal[3],
                 });
                 expectEvent.inTransaction(this.receipts.execute.transactionHash,
                   this.receiver,

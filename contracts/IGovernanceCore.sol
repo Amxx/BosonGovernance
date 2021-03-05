@@ -7,7 +7,7 @@ import "./token/IComp.sol";
 abstract contract IGovernanceCore {
     // events
     event Proposed(bytes32 indexed id, address[] target, uint256[] value, bytes[] data, bytes32 salt);
-    event Executed(bytes32 indexed id, address[] target, uint256[] value, bytes[] data, bytes32 salt);
+    event Executed(bytes32 indexed id);
     event Vote(bytes32 indexed id, address account, uint256 balance, uint256 score);
 
     // settings

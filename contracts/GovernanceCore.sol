@@ -51,11 +51,13 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         return ( _proposals[id].block, _getDeadline(id), _proposals[id].supply, _proposals[id].score);
     }
 
-    function hashProposal(address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) public view virtual returns (bytes32 hash) {
-        // This is cheaper and works just as well
+    // This is cheaper and works just as well
+    function hashProposal(address[] calldata, uint256[] calldata, bytes[] calldata, bytes32) public view virtual returns (bytes32) {
         return keccak256(_msgData()[4:]);
-        // return keccak256(abi.encode(target, value, data, salt));
     }
+    // function hashProposal(address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) public view virtual returns (bytes32) {
+    //     return keccak256(abi.encode(target, value, data, salt));
+    // }
 
     /*************************************************************************
      *                                Actions                                *
@@ -118,7 +120,7 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
             _call(target[i], value[i], data[i]);
         }
 
-        emit Executed(id, target, value, data, salt);
+        emit Executed(id);
     }
 
     function _castVote(bytes32 id, address account, uint256 score) private onlyDuringTimer(id) {
