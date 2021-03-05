@@ -10,7 +10,7 @@ import "./IGovernanceCore.sol";
 import "./utils/Timers.sol";
 
 abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
-    bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(bytes32 id,uint256 score)");
+    bytes32 private constant _VOTE_TYPEHASH = keccak256("Vote(bytes32 id,uint256 score)");
 
     struct Proposal {
         uint256 block;
@@ -49,22 +49,31 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         revert();
     }
 
-    function viewProposal(bytes32 id) public view returns (uint256 startBlock, uint256 deadline, uint256 supply, uint256 score) {
+    function viewProposal(bytes32 id)
+    public view returns (uint256 startBlock, uint256 deadline, uint256 supply, uint256 score)
+    {
         return ( _proposals[id].block, _getDeadline(id), _proposals[id].supply, _proposals[id].score);
     }
 
-    // This is cheaper and works just as well
-    function hashProposal(address[] calldata, uint256[] calldata, bytes[] calldata, bytes32) public view virtual returns (bytes32) {
+    function hashProposal(address[] calldata, uint256[] calldata, bytes[] calldata, bytes32)
+    public view virtual returns (bytes32)
+    {
+        // This is cheaper and works just as well
         return keccak256(_msgData()[4:]);
+        // return keccak256(abi.encode(target, value, data, salt));
     }
-    // function hashProposal(address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) public view virtual returns (bytes32) {
-    //     return keccak256(abi.encode(target, value, data, salt));
-    // }
 
     /*************************************************************************
      *                                Actions                                *
      *************************************************************************/
-    function propose(address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) public virtual override {
+    function propose(
+        address[] calldata target,
+        uint256[] calldata value,
+        bytes[] calldata data,
+        bytes32 salt
+    )
+    public virtual override
+    {
         require(target.length == value.length, "GovernanceCore: invalid proposal length");
         require(target.length == data.length,  "GovernanceCore: invalid proposal length");
         require(target.length > 0,             "GovernanceCore: empty proposal");
@@ -74,7 +83,14 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         _propose(id, target, value, data, salt);
     }
 
-    function execute(address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) public payable virtual override {
+    function execute(
+        address[] calldata target,
+        uint256[] calldata value,
+        bytes[] calldata data,
+        bytes32 salt
+    )
+    public payable virtual override
+    {
         require(target.length == value.length, "GovernanceCore: invalid proposal length");
         require(target.length == data.length,  "GovernanceCore: invalid proposal length");
         require(target.length > 0,             "GovernanceCore: empty proposal");
@@ -84,13 +100,17 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         _execute(id, target, value, data, salt);
     }
 
-    function castVote(bytes32 id, uint256 score) public virtual override {
+    function castVote(bytes32 id, uint256 score)
+    public virtual override
+    {
         _castVote(id, _msgSender(), score);
     }
 
-    function castVoteBySig(bytes32 id, uint256 score, uint8 v, bytes32 r, bytes32 s) public virtual override {
+    function castVoteBySig(bytes32 id, uint256 score, uint8 v, bytes32 r, bytes32 s)
+    public virtual override
+    {
         address voter = ECDSA.recover(
-            _hashTypedDataV4(keccak256(abi.encodePacked(VOTE_TYPEHASH, id, score))),
+            _hashTypedDataV4(keccak256(abi.encodePacked(_VOTE_TYPEHASH, id, score))),
             v, r, s
         );
         _castVote(id, voter, score);
@@ -99,7 +119,15 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
     /*************************************************************************
      *                               Private                                 *
      *************************************************************************/
-    function _propose(bytes32 id, address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) private {
+    function _propose(
+        bytes32 id,
+        address[] calldata target,
+        uint256[] calldata value,
+        bytes[] calldata data,
+        bytes32 salt
+    )
+    private
+    {
         uint256 duration = votingDuration();
         uint256 offset   = votingOffset();
 
@@ -109,7 +137,14 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         emit Proposed(id, target, value, data, salt);
     }
 
-    function _execute(bytes32 id, address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) private onlyAfterTimer(id)
+    function _execute(
+        bytes32 id,
+        address[] calldata target,
+        uint256[] calldata value,
+        bytes[] calldata data,
+        bytes32 salt
+    )
+    private onlyAfterTimer(id)
     {
         _resetTimer(id); // check timer expired + reset
         _lockTimer(id); // avoid double execution
@@ -125,7 +160,9 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         emit Executed(id);
     }
 
-    function _castVote(bytes32 id, address account, uint256 score) private onlyDuringTimer(id) {
+    function _castVote(bytes32 id, address account, uint256 score)
+    private onlyDuringTimer(id)
+    {
         require(score <= maxScore(), "GovernanceCore: invalid score");
 
         Proposal storage proposal = _proposals[id];
@@ -140,7 +177,9 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         emit Vote(id, account, balance, score);
     }
 
-    function _call(address target, uint256 value, bytes memory data) private {
+    function _call(address target, uint256 value, bytes memory data)
+    private
+    {
         if (data.length == 0) {
             Address.sendValue(payable(target), value);
         } else {
