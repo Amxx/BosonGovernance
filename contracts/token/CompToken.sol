@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/utils/Arrays.sol";
 import "./IComp.sol";
 
 abstract contract CompToken is IComp, ERC20Permit {
-    bytes32 public constant DELEGATION_TYPEHASH = keccak256("Delegation(address delegator,address delegatee,uint256 expiry)");
+    bytes32 private constant DELEGATION_TYPEHASH = keccak256("Delegation(address delegator,address delegatee,uint256 expiry)");
 
     mapping (address => address)                      private _delegates;
     mapping (address => uint256[])                    private _checkpointBlocks;

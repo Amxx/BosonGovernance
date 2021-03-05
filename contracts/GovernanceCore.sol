@@ -10,6 +10,8 @@ import "./IGovernanceCore.sol";
 import "./utils/Timers.sol";
 
 abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
+    bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(bytes32 id,uint256 score)");
+
     struct Proposal {
         uint256 block;
         uint256 supply;
@@ -88,7 +90,7 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
 
     function castVoteBySig(bytes32 id, uint256 score, uint8 v, bytes32 r, bytes32 s) public virtual override {
         address voter = ECDSA.recover(
-            _hashTypedDataV4(keccak256(abi.encodePacked(keccak256("Vote(bytes32 id,uint256 score)"), id, score))),
+            _hashTypedDataV4(keccak256(abi.encodePacked(VOTE_TYPEHASH, id, score))),
             v, r, s
         );
         _castVote(id, voter, score);
