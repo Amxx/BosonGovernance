@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Arrays.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
 import "./IComp.sol";
 
 contract CompWrapper is IComp, ERC20Permit {
@@ -20,7 +19,7 @@ contract CompWrapper is IComp, ERC20Permit {
     constructor(ERC20 underlyingToken)
     ERC20(
         string(abi.encodePacked("Governance ", underlyingToken.name())),
-        string(abi.encodePacked("G-", underlyingToken.symbol()))
+        string(abi.encodePacked("G-",          underlyingToken.symbol()))
     )
     ERC20Permit (
         string(abi.encodePacked("Governance ", underlyingToken.name()))
@@ -46,25 +45,24 @@ contract CompWrapper is IComp, ERC20Permit {
     }
 
     function delegateFromBySig(address delegator, address delegatee, uint expiry, uint8 v, bytes32 r, bytes32 s) public virtual override {
-        require(block.timestamp <= expiry, "CompERC20Wrapper: signature expired");
+        revert("TODO: delegateFromBySig disabled until _useNonce is available");
 
-        require(
-            delegator == ECDSA.recover(
-                _hashTypedDataV4(keccak256(abi.encode(
-                    DELEGATION_TYPEHASH,
-                    delegatee,
-                    nonces(delegator),
-                    expiry
-                ))),
-                v, r, s
-            ),
-            "CompERC20Wrapper: invalid signature"
-        );
-
-        revert("TODO: delegateFromBySig disabled until _incrementNonces is available");
-        // _incrementNonces(delegator);
-
-        return _delegate(delegator, delegatee);
+        // require(block.timestamp <= expiry, "CompERC20Wrapper: signature expired");
+        //
+        // require(
+        //     delegator == ECDSA.recover(
+        //         _hashTypedDataV4(keccak256(abi.encode(
+        //             DELEGATION_TYPEHASH,
+        //             delegatee,
+        //             _useNonce(delegator),
+        //             expiry
+        //         ))),
+        //         v, r, s
+        //     ),
+        //     "CompERC20Wrapper: invalid signature"
+        // );
+        //
+        // return _delegate(delegator, delegatee);
     }
 
     function _delegate(address delegator, address delegatee) internal {

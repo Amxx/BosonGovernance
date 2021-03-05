@@ -82,10 +82,10 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         _castVote(id, _msgSender(), score);
     }
 
-    function castVoteBySig(bytes32 id, uint256 score, bytes calldata signature) public virtual override {
+    function castVoteBySig(bytes32 id, uint256 score, uint8 v, bytes32 r, bytes32 s) public virtual override {
         address voter = ECDSA.recover(
             _hashTypedDataV4(keccak256(abi.encodePacked(keccak256("Vote(bytes32 id,uint256 score)"), id, score))),
-            signature
+            v, r, s
         );
         _castVote(id, voter, score);
     }
@@ -96,6 +96,7 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
     function _propose(bytes32 id, address[] calldata target, uint256[] calldata value, bytes[] calldata data, bytes32 salt) private {
         _startTimer(id, block.timestamp + votingDuration()); // prevent double proposal
 
+        // TODO: make that in the futur to let people buy tokens for voting.
         _proposals[id].block = block.number;
 
         emit Proposed(id, target, value, data, salt);
@@ -124,6 +125,7 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         require(!proposal.voters[account], "GovernanceCore: vote already casted");
         proposal.voters[account] = true;
 
+        require(proposal.block > block.number, "GovernanceCore: too early to vote");
         uint256 balance = token().getPriorVotes(account, proposal.block);
         proposal.supply += balance;
         proposal.score += balance * score;
