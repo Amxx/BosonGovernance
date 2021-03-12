@@ -4,13 +4,11 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
-import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./IGovernanceCore.sol";
 import "./utils/Timers.sol";
 
-abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
-    bytes32 private constant _VOTE_TYPEHASH = keccak256("Vote(bytes32 id,uint256 score)");
+abstract contract GovernanceCore is IGovernanceCore, Context, Timers {
 
     struct Proposal {
         uint256 block;
@@ -35,8 +33,6 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         require(_isTimerAfter(id), "GovernanceCore: proposal not ready to execute");
         _;
     }
-
-    constructor(string memory name, string memory version) EIP712(name, version) {}
 
     /*************************************************************************
      *                            View functions                             *
@@ -64,61 +60,21 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
     }
 
     /*************************************************************************
-     *                                Actions                                *
-     *************************************************************************/
-    function propose(
-        address[] calldata target,
-        uint256[] calldata value,
-        bytes[] calldata data,
-        bytes32 salt
-    )
-    public virtual override
-    {
-        require(target.length == value.length, "GovernanceCore: invalid proposal length");
-        require(target.length == data.length,  "GovernanceCore: invalid proposal length");
-        require(target.length > 0,             "GovernanceCore: empty proposal");
-
-        bytes32 id = hashProposal(target, value, data, salt);
-
-        _propose(id, target, value, data, salt);
-    }
-
-    function execute(
-        address[] calldata target,
-        uint256[] calldata value,
-        bytes[] calldata data,
-        bytes32 salt
-    )
-    public payable virtual override
-    {
-        require(target.length == value.length, "GovernanceCore: invalid proposal length");
-        require(target.length == data.length,  "GovernanceCore: invalid proposal length");
-        require(target.length > 0,             "GovernanceCore: empty proposal");
-
-        bytes32 id = hashProposal(target, value, data, salt);
-
-        _execute(id, target, value, data, salt);
-    }
-
-    function castVote(bytes32 id, uint256 score)
-    public virtual override
-    {
-        _castVote(id, _msgSender(), score);
-    }
-
-    function castVoteBySig(bytes32 id, uint256 score, uint8 v, bytes32 r, bytes32 s)
-    public virtual override
-    {
-        address voter = ECDSA.recover(
-            _hashTypedDataV4(keccak256(abi.encodePacked(_VOTE_TYPEHASH, id, score))),
-            v, r, s
-        );
-        _castVote(id, voter, score);
-    }
-
-    /*************************************************************************
      *                               Private                                 *
      *************************************************************************/
+    function _propose(
+        address[] calldata target,
+        uint256[] calldata value,
+        bytes[] calldata data,
+        bytes32 salt
+    )
+    internal virtual returns (bytes32)
+    {
+        bytes32 id = hashProposal(target, value, data, salt);
+        _propose(id, target, value, data, salt);
+        return id;
+    }
+
     function _propose(
         bytes32 id,
         address[] calldata target,
@@ -126,8 +82,12 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         bytes[] calldata data,
         bytes32 salt
     )
-    private
+    internal virtual
     {
+        require(target.length == value.length, "GovernanceCore: invalid proposal length");
+        require(target.length == data.length,  "GovernanceCore: invalid proposal length");
+        require(target.length > 0,             "GovernanceCore: empty proposal");
+
         uint256 duration = votingDuration();
         uint256 offset   = votingOffset();
 
@@ -138,14 +98,31 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
     }
 
     function _execute(
+        address[] calldata target,
+        uint256[] calldata value,
+        bytes[] calldata data,
+        bytes32 salt
+    )
+    internal virtual returns (bytes32)
+    {
+        bytes32 id = hashProposal(target, value, data, salt);
+        _execute(id, target, value, data, salt);
+        return id;
+    }
+
+    function _execute(
         bytes32 id,
         address[] calldata target,
         uint256[] calldata value,
         bytes[] calldata data,
         bytes32 salt
     )
-    private onlyAfterTimer(id)
+    internal virtual onlyAfterTimer(id)
     {
+        require(target.length == value.length, "GovernanceCore: invalid proposal length");
+        require(target.length == data.length,  "GovernanceCore: invalid proposal length");
+        require(target.length > 0,             "GovernanceCore: empty proposal");
+
         _resetTimer(id); // check timer expired + reset
         _lockTimer(id); // avoid double execution
 
@@ -153,15 +130,17 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         require(proposal.supply >= quorum(), "GovernanceCore: quorum not reached");
         require(proposal.score >= proposal.supply * requiredScore(), "GovernanceCore: required score not reached");
 
-        for (uint256 i = 0; i < target.length; ++i) {
-            _call(target[i], value[i], data[i]);
-        }
+        _calls(id, target, value, data, salt);
 
         emit Executed(id);
     }
 
-    function _castVote(bytes32 id, address account, uint256 score)
-    private onlyDuringTimer(id)
+    function _castVote(
+        bytes32 id,
+        address account,
+        uint256 score
+    )
+    internal virtual onlyDuringTimer(id)
     {
         require(score <= maxScore(), "GovernanceCore: invalid score");
 
@@ -177,8 +156,26 @@ abstract contract GovernanceCore is IGovernanceCore, EIP712, Context, Timers {
         emit Vote(id, account, balance, score);
     }
 
-    function _call(address target, uint256 value, bytes memory data)
-    private
+    function _calls(
+        bytes32 /*id*/,
+        address[] calldata target,
+        uint256[] calldata value,
+        bytes[] calldata data,
+        bytes32 /*salt*/
+    )
+    internal virtual
+    {
+        for (uint256 i = 0; i < target.length; ++i) {
+            _call(target[i], value[i], data[i]);
+        }
+    }
+
+    function _call(
+        address target,
+        uint256 value,
+        bytes memory data
+    )
+    internal virtual
     {
         if (data.length == 0) {
             Address.sendValue(payable(target), value);
