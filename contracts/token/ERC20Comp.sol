@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Arrays.sol";
 import "./IComp.sol";
 
-abstract contract CompToken is IComp, ERC20Permit {
+abstract contract ERC20Comp is IComp, ERC20Permit {
     bytes32 private constant _DELEGATION_TYPEHASH = keccak256("Delegation(address delegator,address delegatee,uint256 expiry)");
 
     mapping (address => address)                      private _delegates;
@@ -22,7 +22,8 @@ abstract contract CompToken is IComp, ERC20Permit {
         return _delegate(_msgSender(), delegatee);
     }
 
-    function delegateFromBySig(address delegator, address delegatee, uint expiry, uint8 v, bytes32 r, bytes32 s)
+    // function delegateFromBySig(address delegator, address delegatee, uint expiry, uint8 v, bytes32 r, bytes32 s)
+    function delegateFromBySig(address, address, uint, uint8, bytes32, bytes32)
     public virtual override
     {
         revert("TODO: delegateFromBySig disabled until _useNonce is available");

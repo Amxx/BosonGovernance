@@ -2,29 +2,19 @@
 
 pragma solidity ^0.8.0;
 
-import "./CompToken.sol";
+import "./ERC20Comp.sol";
+import "./ERC20Wrapper.sol";
 
-contract CompWrapper is CompToken {
-    ERC20 immutable public token;
-
+contract CompWrapper is ERC20Wrapper, ERC20Comp {
     constructor(ERC20 token_)
-    CompToken(
+    ERC20Wrapper(token_)
+    ERC20Comp(
         string(abi.encodePacked("Governance ", token_.name())),
         string(abi.encodePacked("G-",          token_.symbol()))
     )
-    {
-        token = token_;
-    }
+    {}
 
-    function depositFor(address account, uint256 amount) public virtual returns (bool) {
-        require(token.transferFrom(_msgSender(), address(this), amount));
-        _mint(account, amount);
-        return true;
-    }
-
-    function withdrawTo(address account, uint256 amount) public virtual returns (bool) {
-        _burn(_msgSender(), amount);
-        require(token.transfer(account, amount));
-        return true;
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override(ERC20, ERC20Comp) {
+        super._beforeTokenTransfer(from, to, amount);
     }
 }

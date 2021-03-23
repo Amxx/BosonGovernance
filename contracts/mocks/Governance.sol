@@ -20,8 +20,8 @@ contract Governance is GovernanceCore, EIP712 {
     function votingOffset()   public pure override returns (uint256) { return 0;      }
     function votingDuration() public pure override returns (uint256) { return 3600;   }
     function quorum()         public pure override returns (uint256) { return 1;      }
-    function maxScore()       public view override returns (uint256) { return 100;    }
-    function requiredScore()  public view override returns (uint256) { return 50;     }
+    function maxScore()       public pure override returns (uint256) { return 100;    }
+    function requiredScore()  public pure override returns (uint256) { return 50;     }
 
     function propose(
         address[] calldata target,
@@ -31,7 +31,7 @@ contract Governance is GovernanceCore, EIP712 {
     )
     public returns (bytes32)
     {
-        _propose(target, value, data, salt);
+        return _propose(target, value, data, salt);
     }
 
     function execute(
@@ -42,7 +42,7 @@ contract Governance is GovernanceCore, EIP712 {
     )
     public payable returns (bytes32)
     {
-        _execute(target, value, data, salt);
+        return _execute(target, value, data, salt);
     }
 
     function castVote(bytes32 id, uint256 score)

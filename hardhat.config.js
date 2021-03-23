@@ -19,7 +19,7 @@ module.exports = {
       { version: '0.5.16', settings },
       { version: '0.6.12', settings },
       { version: '0.7.6',  settings },
-      { version: '0.8.2',  settings },
+      { version: '0.8.3',  settings },
     ],
   },
   gasReporter: {
