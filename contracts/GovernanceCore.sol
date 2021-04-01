@@ -149,7 +149,7 @@ abstract contract GovernanceCore is IGovernanceCore, Context, Timers {
         proposal.voters[account] = true;
 
         require(proposal.block < block.number, "GovernanceCore: too early to vote");
-        uint256 balance = token().getPriorVotes(account, proposal.block);
+        uint256 balance = _getVotes(account, proposal.block);
         proposal.supply += balance;
         proposal.score += balance * score;
 
@@ -183,4 +183,6 @@ abstract contract GovernanceCore is IGovernanceCore, Context, Timers {
             Address.functionCallWithValue(target, data, value);
         }
     }
+
+    function _getVotes(address account, uint256 blockNumber) internal view virtual returns(uint256);
 }

@@ -11,7 +11,6 @@ abstract contract IGovernanceCore {
     event Vote(bytes32 indexed id, address account, uint256 balance, uint256 score);
 
     // settings
-    function token()          public view virtual returns (IComp);
     function votingOffset()   public view virtual returns (uint256);
     function votingDuration() public view virtual returns (uint256);
     function quorum()         public view virtual returns (uint256);

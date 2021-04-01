@@ -16,7 +16,9 @@ contract Governance is GovernanceCore, EIP712 {
         _token = token_;
     }
 
-    function token()          public view override returns (IComp)   { return _token; }
+    receive() external payable {}
+
+    function token()          public view          returns (IComp)   { return _token; }
     function votingOffset()   public pure override returns (uint256) { return 0;      }
     function votingDuration() public pure override returns (uint256) { return 3600;   }
     function quorum()         public pure override returns (uint256) { return 1;      }
@@ -40,7 +42,7 @@ contract Governance is GovernanceCore, EIP712 {
         bytes[] calldata data,
         bytes32 salt
     )
-    public payable returns (bytes32)
+    public returns (bytes32)
     {
         return _execute(target, value, data, salt);
     }
@@ -59,5 +61,11 @@ contract Governance is GovernanceCore, EIP712 {
             v, r, s
         );
         _castVote(id, voter, score);
+    }
+
+    function _getVotes(address account, uint256 blockNumber)
+    internal view virtual override returns(uint256)
+    {
+        return _token.getPriorVotes(account, blockNumber);
     }
 }

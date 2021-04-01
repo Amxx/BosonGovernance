@@ -1,0 +1,137 @@
+@startuml
+skinparam BackgroundColor transparent
+skinparam componentStyle rectangle
+component "Governance" as Scope {
+    interface IGovernanceCore {
+        -- events --
+        +event Proposed(bytes32 indexed id, address[] target, uint256[] value, bytes[] data, bytes32 salt);
+        +event Executed(bytes32 indexed id);
+        +event Vote(bytes32 indexed id, address account, uint256 balance, uint256 score);
+        -- interface --
+        -function votingOffset()   public view virtual returns (uint256);
+        -function votingDuration() public view virtual returns (uint256);
+        -function quorum()         public view virtual returns (uint256);
+        -function maxScore()       public view virtual returns (uint256);
+        -function requiredScore()  public view virtual returns (uint256);
+    }
+
+    abstract class Context {
+        -- internal --
+        *function _msgSender() internal view virtual returns (address)
+        *function _msgData() internal view virtual returns (bytes)
+    }
+    abstract class Timers{
+        -- events --
+        +event TimerStarted(bytes32 indexed timer, uint256 deadline)
+        +event TimerStopped(bytes32 indexed timer)
+        +event TimerReset(bytes32 indexed timer)
+        +event TimerLocked(bytes32 indexed timer)
+        -- internal --
+        *function _getDeadline(bytes32 id) internal view returns (uint256)
+        *function _isTimerActive(bytes32 id) internal view returns (bool)
+        *function _isTimerLocked(bytes32 id) internal view returns (bool)
+        *function _isTimerBefore(bytes32 id) internal view returns (bool)
+        *function _isTimerDuring(bytes32 id) internal view returns (bool)
+        *function _isTimerAfter(bytes32 id) internal view returns (bool)
+        *function _startTimer(bytes32 id, uint256 delay) internal virtual
+        *function _lockTimer(bytes32 id) internal virtual
+        *function _resetTimer(bytes32 id) internal virtual
+        *function _beforeTimer(bytes32 id, uint256 deadline) internal virtual
+        *function _afterTimer(bytes32 id) internal virtual
+    }
+
+    abstract class GovernanceCore{
+        -- public --
+        +function viewProposalStatus(bytes32 id) public view returns (uint8 status)
+        +function viewProposal(bytes32 id) public view returns (uint256 startBlock, uint256 deadline, uint256 supply, uint256 score)
+        +function hashProposal(address[], uint256[], bytes[], bytes32) public view virtual returns (bytes32)
+        -- internal --
+        *function _propose(address[] target, uint256[] value, bytes[] data, bytes32 salt) internal virtual returns (bytes32)
+        *function _propose(bytes32 id, address[] target, uint256[] value, bytes[] data, bytes32 salt) internal virtual
+        *function _execute(address[] target, uint256[] value, bytes[] data, bytes32 salt) internal virtual returns (bytes32)
+        *function _execute(bytes32 id, address[] target, uint256[] value, bytes[] data, bytes32 salt) internal virtual
+        *function _castVote(bytes32 id, address account, uint256 score) internal virtual
+        *function _calls(bytes32 id, address[] target, uint256[] value, bytes[] data, bytes32 salt)internal virtual
+        *function _call(address target, uint256 value, bytes data) internal virtual
+        -- interface --
+        -function _getVotes(address account, uint256 blockNumber) internal view virtual returns(uint256)
+    }
+
+    class "Governance" as Mock {
+        -- IGovernance interface implementation --
+        +function votingOffset()public pure override returns (uint256)
+        +function votingDuration()public pure override returns (uint256)
+        +function quorum()public pure override returns (uint256)
+        +function maxScore()public pure override returns (uint256)
+        +function requiredScore()public pure override returns (uint256)
+        -- public --
+        +function propose(address[] target, uint256[] value, bytes[] data, bytes32 salt) public returns (bytes32)
+        +function execute(address[] target, uint256[] value, bytes[] data, bytes32 salt) public payable returns (bytes32)
+        +function castVote(bytes32 id, uint256 score) public
+        +function castVoteBySig(bytes32 id, uint256 score, uint8 v, bytes32 r, bytes32 s) public
+        -- token --
+        +function token() public view returns (IComp)
+        *function _getVotes(address account, uint256 blockNumber) internal view virtual override returns(uint256)
+        -- comments --
+        **Modularity:**
+        * Access control for proposal submission
+        * Override _calls/_call for custom execution models (timelock ?)
+        * Override _getVotes to support different token models
+    }
+}
+
+component Token {
+    interface IERC20 {}
+    abstract class ERC20 {}
+    abstract class ERC20Permit {}
+
+    interface IComp {
+        -- event --
+        +event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate)
+        +event DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance)
+        -- public --
+        -function delegate(address delegatee) external
+        -function delegateFromBySig(address delegator, address delegatee, uint256 expiry, uint8 v, bytes32 r, bytes32 s) external
+        -function getPriorVotes(address account, uint256 blockNumber) external view returns (uint256)
+        -function getCurrentVotes(address account) external view returns (uint256)
+    }
+
+    abstract class ERC20Comp {
+        -- public --
+        +function delegate(address delegatee) public virtual override
+        +function delegateFromBySig(address, address, uint, uint8, bytes32, bytes32) public virtual override
+        +function getPriorVotes(address account, uint blockNumber) public view override returns (uint256)
+        +function getCurrentVotes(address account) external view override returns (uint256)
+        --internal--
+        *function _delegate(address delegator, address delegatee) internal
+    }
+
+    abstract class ERC20Wrapper {
+        -- public --
+        +function underlyingToken() public view returns (ERC20)
+        +function depositFor(address account, uint256 amount) public virtual returns (bool)
+        +function withdrawTo(address account, uint256 amount) public virtual returns (bool)
+    }
+
+    class CompWrapper{}
+}
+
+IERC20 *-- ERC20
+IERC20 *-- IComp
+IComp *-- ERC20Comp
+ERC20Comp *-- CompWrapper
+
+ERC20 *-- ERC20Permit
+EIP712 *-- ERC20Permit
+ERC20Permit *-- ERC20Comp
+ERC20 *-- ERC20Wrapper
+ERC20Wrapper *-- CompWrapper
+
+IGovernanceCore *-- GovernanceCore
+Context *-- GovernanceCore
+Timers *-- GovernanceCore
+GovernanceCore *-- Mock
+EIP712 *-- Mock
+IComp <-- Mock
+
+@enduml
